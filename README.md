@@ -17,10 +17,12 @@ https://github.com/user-attachments/assets/55e2a362-19bf-4813-a734-ca28a9916b16
 - Neovim with support for `vim.system` (0.10+ is recommended).
 - `curl` available in your `PATH`.
 - An any Provider API key with access to the configured model.
+- For OpenCode, an `opencode` server running locally (e.g. `opencode serve --port 4096`).
 
 ### Providers Available
 1. [OpenAI](https://platform.openai.com/docs/api-reference/authentication)
 2. [Anthropic](https://platform.claude.com/docs/en/api/overview)
+3. [OpenCode](https://opencode.ai/docs/server/)
 
 ## Installation
 
@@ -76,8 +78,21 @@ Default configuration from `lua/cursor-inline/config.lua`:
   provider = {
     name = "openai",
     model = "gpt-4.1-mini",
+    server_url = "http://127.0.0.1:4096",
   },
 }
+```
+
+### OpenCode example
+
+```lua
+require("cursor-inline").setup({
+  provider = {
+    name = "opencode",
+    server_url = "http://127.0.0.1:4096",
+    model = "opencode/gpt-5.1-codex",
+  },
+})
 ```
 
 ---

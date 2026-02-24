@@ -10,6 +10,7 @@ M.mappings = {
 M.provider = {
   name = "openai",
   model = "gpt-4.1-mini",
+  server_url = "http://127.0.0.1:4096",
 }
 
 M.setup = function(opts)

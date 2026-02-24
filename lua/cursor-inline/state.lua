@@ -28,5 +28,6 @@ local M = {
   },
   selected_text = "",
   main_bufnr = nil,
+  opencode_session_id = nil,
 }
 return M

@@ -85,8 +85,10 @@ local function generate_response(input, callback)
   providers.get_current_provider_response(input, function(response_code)
     local lines = vim.split(response_code, "\n", { plain = true })
     if #lines ~= 0 then callback("done") end
-    table.remove(lines, 1)
-    table.remove(lines, #lines)
+    if lines[1] and lines[1]:match("^```") and lines[#lines] and lines[#lines]:match("^```") then
+      table.remove(lines, 1)
+      table.remove(lines, #lines)
+    end
     vim.schedule(function()
       insert_generated_code(lines)
       highlight_old_code()
@@ -101,13 +103,14 @@ end
 
 function M.get_response()
   local provider = config.provider or {}
-  local api_key = config.provider.name == "openai" and vim.fn.getenv("OPENAI_API_KEY") or
-      provider.name == "anthropic" and vim.fn.getenv("ANTHROPIC_API_KEY")
-  local api_key_name = config.provider.name == "openai" and "OPENAI_API_KEY" or
-      provider.name == "anthropic" and "ANTHROPIC_API_KEY"
-  if api_key == vim.NIL or api_key == "" then
-    vim.notify("The " .. provider.name .. " API key is missing", vim.log.levels.ERROR)
-    vim.notify(string.format([[
+  if provider.name == "openai" or provider.name == "anthropic" then
+    local api_key = provider.name == "openai" and vim.fn.getenv("OPENAI_API_KEY") or
+        provider.name == "anthropic" and vim.fn.getenv("ANTHROPIC_API_KEY")
+    local api_key_name = provider.name == "openai" and "OPENAI_API_KEY" or
+        provider.name == "anthropic" and "ANTHROPIC_API_KEY"
+    if api_key == vim.NIL or api_key == "" then
+      vim.notify("The " .. provider.name .. " API key is missing", vim.log.levels.ERROR)
+      vim.notify(string.format([[
 Please enter the API key securely:
 On Unix (Linux/macOS):
   1. Add this line in your shell config file:
@@ -123,10 +126,18 @@ On Windows (Command Prompt):
 
 On Windows (PowerShell):
   1. Run:
-     [System.Environment]::SetEnvironmentVariable("%s", "<api-key>", "User")
+      [System.Environment]::SetEnvironmentVariable("%s", "<api-key>", "User")
   2. Restart PowerShell and Neovim.
     ]], api_key_name, api_key_name, api_key_name))
-    return
+      return
+    end
+  end
+  if provider.name == "opencode" then
+    local server_url = provider.server_url
+    if not server_url or server_url == "" then
+      vim.notify("The opencode server URL is missing", vim.log.levels.ERROR)
+      return
+    end
   end
   ---@param input string
   ---@param opts any
