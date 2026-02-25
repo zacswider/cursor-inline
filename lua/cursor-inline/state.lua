@@ -29,5 +29,8 @@ local M = {
   selected_text = "",
   main_bufnr = nil,
   opencode_session_id = nil,
+  opencode_server_job = nil,
+  opencode_server_starting = false,
+  opencode_server_pending = nil,
 }
 return M

@@ -4,6 +4,51 @@ local prompts = require("cursor-inline.prompts")
 local state = require("cursor-inline.state")
 local ui = require("cursor-inline.ui")
 
+---@param ok boolean
+---@param message string|nil
+local function flush_opencode_server_queue(ok, message)
+  local pending = state.opencode_server_pending or {}
+  state.opencode_server_pending = nil
+  state.opencode_server_starting = false
+  for _, callback in ipairs(pending) do
+    callback(ok, message)
+  end
+end
+
+---@param on_ready fun(ok: boolean, message: string|nil)
+local function start_opencode_server(on_ready)
+  state.opencode_server_pending = state.opencode_server_pending or {}
+  table.insert(state.opencode_server_pending, on_ready)
+
+  if state.opencode_server_starting then
+    return
+  end
+  if state.opencode_server_job then
+    flush_opencode_server_queue(true)
+    return
+  end
+
+  state.opencode_server_starting = true
+  local command = config.provider.start_command
+  if not command or command == "" then
+    flush_opencode_server_queue(false, "OpenCode start command is not configured")
+    return
+  end
+
+  local cmd_list = type(command) == "table" and command or vim.fn.split(command)
+  local job_id = vim.fn.jobstart(cmd_list, { detach = true })
+  if job_id <= 0 then
+    flush_opencode_server_queue(false, "Failed to start OpenCode server")
+    return
+  end
+
+  state.opencode_server_job = job_id
+  local delay = config.provider.startup_delay_ms or 1500
+  vim.defer_fn(function()
+    flush_opencode_server_queue(true)
+  end, delay)
+end
+
 ---@param path string
 ---@return string
 local function opencode_url(path)
@@ -20,7 +65,8 @@ end
 ---@param body table|nil
 ---@param on_success fun(response: table)
 ---@param on_error fun(message: string)|nil
-local function opencode_request(method, path, body, on_success, on_error)
+---@param opts table|nil
+local function opencode_request(method, path, body, on_success, on_error, opts)
   local command = {
     "curl",
     "-s",
@@ -49,16 +95,29 @@ local function opencode_request(method, path, body, on_success, on_error)
     end)
 
     if res.code ~= 0 then
-      local message = res.stderr or "OpenCode request failed"
-      if on_error then
-        vim.schedule(function()
-          on_error(message)
+      local allow_autostart = config.provider.autostart == true
+      local should_retry = allow_autostart and res.code == 7 and not (opts and opts.retried)
+      if should_retry then
+        start_opencode_server(function(ok, message)
+          if not ok then
+            vim.schedule(function()
+              vim.notify(message or "Failed to start OpenCode server", vim.log.levels.ERROR)
+            end)
+            return
+          end
+          opencode_request(method, path, body, on_success, on_error, { retried = true })
         end)
-      else
-        vim.schedule(function()
-          vim.notify(message, vim.log.levels.ERROR)
-        end)
+        return
       end
+
+      local message = res.stderr or "OpenCode request failed"
+      vim.schedule(function()
+        if on_error then
+          on_error(message)
+        else
+          vim.notify(message, vim.log.levels.ERROR)
+        end
+      end)
       return
     end
 

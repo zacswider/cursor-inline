@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/55e2a362-19bf-4813-a734-ca28a9916b16
 - Neovim with support for `vim.system` (0.10+ is recommended).
 - `curl` available in your `PATH`.
 - An any Provider API key with access to the configured model.
-- For OpenCode, an `opencode` server running locally (e.g. `opencode serve --port 4096`).
+- For OpenCode, `opencode` in your `PATH`. The plugin can auto-start the server.
 
 ### Providers Available
 1. [OpenAI](https://platform.openai.com/docs/api-reference/authentication)
@@ -79,6 +79,9 @@ Default configuration from `lua/cursor-inline/config.lua`:
     name = "openai",
     model = "gpt-4.1-mini",
     server_url = "http://127.0.0.1:4096",
+    autostart = true,
+    start_command = "opencode serve --port 4096",
+    startup_delay_ms = 1500,
   },
 }
 ```
@@ -91,6 +94,8 @@ require("cursor-inline").setup({
     name = "opencode",
     server_url = "http://127.0.0.1:4096",
     model = "opencode/gpt-5.1-codex",
+    autostart = true,
+    start_command = "opencode serve --port 4096",
   },
 })
 ```
