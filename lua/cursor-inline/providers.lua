@@ -136,6 +136,8 @@ local function opencode_request(method, path, body, on_success, on_error, opts)
     "Content-Type: application/json",
     "-H",
     "Accept: application/json",
+    "-w",
+    "\n__HTTP_STATUS:%{http_code}",
   }
 
   debug_log("[opencode] request " .. method .. " " .. opencode_url(path))
@@ -190,9 +192,37 @@ local function opencode_request(method, path, body, on_success, on_error, opts)
       return
     end
 
-    local ok, data = decode_opencode_response(res.stdout)
+    local stdout = res.stdout or ""
+    local status = stdout:match("__HTTP_STATUS:(%d+)")
+    if status then
+      stdout = stdout:gsub("\n__HTTP_STATUS:%d+%s*$", "")
+    end
+
+    if stdout == "" then
+      debug_log("[opencode] empty response body")
+      local message = "OpenCode returned an empty response"
+      if status then
+        message = message .. " (HTTP " .. status .. ")"
+      end
+      if on_error then
+        vim.schedule(function()
+          on_error(message)
+        end)
+      else
+        vim.schedule(function()
+          vim.notify(message, vim.log.levels.ERROR)
+        end)
+      end
+      return
+    end
+
+    if status and status:sub(1, 1) ~= "2" then
+      debug_log("[opencode] non-2xx response (HTTP " .. status .. ")")
+    end
+
+    local ok, data = decode_opencode_response(stdout)
     if not ok then
-      debug_log("[opencode] response decode failed: " .. tostring(res.stdout))
+      debug_log("[opencode] response decode failed: " .. tostring(stdout))
       local message = "Failed to parse OpenCode response"
       if on_error then
         vim.schedule(function()
