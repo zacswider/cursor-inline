@@ -8,6 +8,7 @@ local bufnr, win_id
 local input_overridden
 local spinner_timer = nil
 local spinner_timeout = nil
+local spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
 
 local function override_vim_input()
   if input_overridden then return end
@@ -41,6 +42,13 @@ local function override_vim_input()
 
     local function confirm()
       local text = table.concat(api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
+      local first_char = vim.fn.strcharpart(text, 0, 1)
+      for _, frame in ipairs(spinner_frames) do
+        if first_char == frame then
+          text = vim.fn.strcharpart(text, 1)
+          break
+        end
+      end
       on_confirm(text ~= "" and text or nil, { win_id = win, bufnr = buf }, close_input)
     end
 
@@ -121,7 +129,6 @@ function M.setup()
 end
 
 function M.start_spinner()
-  local spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
   local spinner_index = 1
   local floating_buf = state.bufs.input
 

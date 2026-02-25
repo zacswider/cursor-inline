@@ -4,6 +4,37 @@ local prompts = require("cursor-inline.prompts")
 local state = require("cursor-inline.state")
 local ui = require("cursor-inline.ui")
 
+---@param output string
+---@return boolean, any
+local function decode_opencode_response(output)
+  local ok, data = pcall(vim.json.decode, output)
+  if ok then
+    return true, data
+  end
+
+  local brace_start = output:find("{", 1, true)
+  local brace_end = output:match(".*()}")
+  if brace_start and brace_end and brace_end >= brace_start then
+    local chunk = output:sub(brace_start, brace_end)
+    ok, data = pcall(vim.json.decode, chunk)
+    if ok then
+      return true, data
+    end
+  end
+
+  local bracket_start = output:find("[", 1, true)
+  local bracket_end = output:match(".*()]")
+  if bracket_start and bracket_end and bracket_end >= bracket_start then
+    local chunk = output:sub(bracket_start, bracket_end)
+    ok, data = pcall(vim.json.decode, chunk)
+    if ok then
+      return true, data
+    end
+  end
+
+  return false, nil
+end
+
 ---@param model any
 ---@return table|nil
 local function normalize_opencode_model(model)
@@ -159,7 +190,7 @@ local function opencode_request(method, path, body, on_success, on_error, opts)
       return
     end
 
-    local ok, data = pcall(vim.json.decode, res.stdout)
+    local ok, data = decode_opencode_response(res.stdout)
     if not ok then
       debug_log("[opencode] response decode failed: " .. tostring(res.stdout))
       local message = "Failed to parse OpenCode response"
