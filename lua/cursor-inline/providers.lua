@@ -4,6 +4,25 @@ local prompts = require("cursor-inline.prompts")
 local state = require("cursor-inline.state")
 local ui = require("cursor-inline.ui")
 
+---@param model any
+---@return table|nil
+local function normalize_opencode_model(model)
+  if type(model) == "table" then
+    return model
+  end
+  if type(model) ~= "string" or model == "" then
+    return nil
+  end
+  local provider_id, model_id = model:match("^([^/]+)/(.+)$")
+  if not provider_id or not model_id then
+    return nil
+  end
+  return {
+    providerID = provider_id,
+    modelID = model_id,
+  }
+end
+
 ---@param message string
 local function debug_log(message)
   if config.provider.debug ~= true then
@@ -280,14 +299,24 @@ local function opencode_curl_command(input, on_response)
         },
       },
     }
-    if config.provider.model and config.provider.model ~= "" then
-      body.model = config.provider.model
+    local model = normalize_opencode_model(config.provider.model)
+    if model then
+      body.model = model
     end
     if config.provider.agent and config.provider.agent ~= "" then
       body.agent = config.provider.agent
     end
 
     opencode_request("POST", "/session/" .. session_id .. "/message", body, function(response)
+      if response and response.success == false and response.error then
+        local err = response.error[1]
+        local err_message = "OpenCode request failed"
+        if err and err.message then
+          err_message = err.message
+        end
+        vim.notify(err_message, vim.log.levels.ERROR)
+        return
+      end
       if response and response.info and response.info.error then
         local err = response.info.error
         local err_message = "OpenCode error"
