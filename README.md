@@ -82,6 +82,7 @@ Default configuration from `lua/cursor-inline/config.lua`:
     autostart = true,
     start_command = "opencode serve --port 4096",
     startup_delay_ms = 1500,
+    debug = false,
   },
 }
 ```
@@ -96,9 +97,15 @@ require("cursor-inline").setup({
     model = "opencode/gpt-5.1-codex",
     autostart = true,
     start_command = "opencode serve --port 4096",
+    debug = true,
   },
 })
 ```
+
+### Debug logs
+
+Set `provider.debug = true` to log OpenCode requests and responses via `vim.notify`.
+View logs with `:messages`.
 
 ---
 

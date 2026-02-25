@@ -14,6 +14,7 @@ M.provider = {
   autostart = true,
   start_command = "opencode serve --port 4096",
   startup_delay_ms = 1500,
+  debug = false,
 }
 
 M.setup = function(opts)

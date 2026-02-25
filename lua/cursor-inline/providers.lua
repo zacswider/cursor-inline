@@ -4,6 +4,16 @@ local prompts = require("cursor-inline.prompts")
 local state = require("cursor-inline.state")
 local ui = require("cursor-inline.ui")
 
+---@param message string
+local function debug_log(message)
+  if config.provider.debug ~= true then
+    return
+  end
+  vim.schedule(function()
+    vim.notify(message, vim.log.levels.DEBUG)
+  end)
+end
+
 ---@param ok boolean
 ---@param message string|nil
 local function flush_opencode_server_queue(ok, message)
@@ -78,6 +88,11 @@ local function opencode_request(method, path, body, on_success, on_error, opts)
     "Accept: application/json",
   }
 
+  debug_log("[opencode] request " .. method .. " " .. opencode_url(path))
+  if body then
+    debug_log("[opencode] request body: " .. vim.inspect(body))
+  end
+
   if body then
     table.insert(command, "-d")
     table.insert(command, vim.json.encode(body))
@@ -95,6 +110,10 @@ local function opencode_request(method, path, body, on_success, on_error, opts)
     end)
 
     if res.code ~= 0 then
+      debug_log("[opencode] request failed (exit " .. tostring(res.code) .. ")")
+      if res.stderr and res.stderr ~= "" then
+        debug_log("[opencode] stderr: " .. res.stderr)
+      end
       local allow_autostart = config.provider.autostart == true
       local should_retry = allow_autostart and res.code == 7 and not (opts and opts.retried)
       if should_retry then
@@ -123,6 +142,7 @@ local function opencode_request(method, path, body, on_success, on_error, opts)
 
     local ok, data = pcall(vim.json.decode, res.stdout)
     if not ok then
+      debug_log("[opencode] response decode failed: " .. tostring(res.stdout))
       local message = "Failed to parse OpenCode response"
       if on_error then
         vim.schedule(function()
@@ -136,6 +156,7 @@ local function opencode_request(method, path, body, on_success, on_error, opts)
       return
     end
 
+    debug_log("[opencode] response: " .. vim.inspect(data))
     vim.schedule(function()
       on_success(data)
     end)
@@ -267,6 +288,17 @@ local function opencode_curl_command(input, on_response)
     end
 
     opencode_request("POST", "/session/" .. session_id .. "/message", body, function(response)
+      if response and response.info and response.info.error then
+        local err = response.info.error
+        local err_message = "OpenCode error"
+        if err.data and err.data.message then
+          err_message = err.data.message
+        elseif err.name then
+          err_message = err.name
+        end
+        vim.notify(err_message, vim.log.levels.ERROR)
+        return
+      end
       local parts = response.parts or {}
       local text_chunks = {}
       for _, part in ipairs(parts) do
